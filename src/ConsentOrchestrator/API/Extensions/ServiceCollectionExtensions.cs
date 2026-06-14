@@ -1,11 +1,13 @@
 using Azure.Messaging.ServiceBus;
 using ConsentOrchestrator.Application.Contracts;
+using ConsentOrchestrator.Application.UseCases.Unsubscribe;
 using ConsentOrchestrator.Application.UseCases.UpdateUserConsent;
 using ConsentOrchestrator.Domain.Interfaces;
 using ConsentOrchestrator.Infrastructure;
 using ConsentOrchestrator.Infrastructure.Cache;
 using ConsentOrchestrator.Infrastructure.Http;
 using ConsentOrchestrator.Infrastructure.Messaging.ServiceBus;
+using ConsentOrchestrator.Infrastructure.Security;
 using Microsoft.Extensions.Http.Resilience;
 
 namespace ConsentOrchestrator.API.Extensions;
@@ -22,11 +24,18 @@ public static class ServiceCollectionExtensions
 
         // ── Use Cases ─────────────────────────────────────────────────
         services.AddScoped<UpdateUserConsentHandler>();
+        services.AddScoped<UnsubscribeHandler>();
 
         // ── Domain Services ───────────────────────────────────────────
         var frontendBaseUri = configuration["Frontend:BaseUri"]
             ?? throw new InvalidOperationException("Frontend:BaseUri is required");
-        services.AddSingleton<IUnsubscribeLinkGenerator>(_ => new UnsubscribeLinkGenerator(frontendBaseUri));
+
+        var unsubscribeHmacSecret = configuration["Unsubscribe:HmacSecret"]
+            ?? throw new InvalidOperationException("Unsubscribe:HmacSecret is required");
+        services.AddSingleton<IHmacTokenGenerator>(_ => new HmacToken(unsubscribeHmacSecret));
+
+        services.AddSingleton<IUnsubscribeLinkGenerator>(sp =>
+            new UnsubscribeLinkGenerator(frontendBaseUri, sp.GetRequiredService<IHmacTokenGenerator>()));
 
         // ── Http Client : OnetrustAdapter with Polly (3 retries) ──────
         services.AddHttpClient<IOnetrustAdapterClient, OnetrustAdapterClient>(client =>
@@ -60,7 +69,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(_ => new ServiceBusClient(serviceBusConnection));
         services.AddSingleton(_ => new ServiceBusTopicOptions(
             configuration["ServiceBus:ConsentUpdatedTopic"] ?? "consent.updated",
-            configuration["ServiceBus:UnsubscribeGeneratedTopic"] ?? "unsubscribe.generated"));
+            configuration["ServiceBus:UnsubscribeGeneratedTopic"] ?? "unsubscribelink.generated"));
         services.AddScoped<IEventBus, ServiceBusEventBus>();
 
         return services;

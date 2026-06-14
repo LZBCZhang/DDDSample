@@ -14,7 +14,7 @@ public class ServiceBusEventBus(
     private static readonly Dictionary<Type, string> TopicMap = new()
     {
         { typeof(ConsentUpdated),           "consent.updated" },
-        { typeof(UnsubscribeLinkGenerated), "unsubscribe.generated" }
+        { typeof(UnsubscribeLinkGenerated), "unsubscribelink.generated" }
     };
 
     public async Task PublishAsync(IDomainEvent domainEvent, CancellationToken ct = default)

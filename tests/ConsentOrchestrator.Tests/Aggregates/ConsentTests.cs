@@ -19,8 +19,9 @@ public class ConsentTests
     public ConsentTests()
     {
         var mock = new Mock<IUnsubscribeLinkGenerator>();
-        mock.Setup(x => x.Generate(It.IsAny<UserId>(), It.IsAny<PurposeId>()))
-            .Returns((UserId _, PurposeId purposeId) => new UnsubscribeLink(purposeId, "https://example.com/u"));
+        mock.Setup(x => x.Generate(It.IsAny<UserId>(), It.IsAny<CollectionPointId>(), It.IsAny<PurposeId>()))
+            .Returns((UserId _, CollectionPointId _, PurposeId purposeId) =>
+                new UnsubscribeLink(purposeId, "https://example.com/u"));
         _linkGenerator = mock.Object;
     }
 

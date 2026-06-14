@@ -78,7 +78,7 @@ public sealed class Consent : AggregateRoot<ConsentId>
         var occurredAt = DateTimeOffset.UtcNow;
 
         var unsubscribeLinks = decisions
-            .Select(decision => linkGenerator.Generate(userId, decision.PurposeId))
+            .Select(decision => linkGenerator.Generate(userId, collectionPointId, decision.PurposeId))
             .ToList();
 
         var consent = new Consent(

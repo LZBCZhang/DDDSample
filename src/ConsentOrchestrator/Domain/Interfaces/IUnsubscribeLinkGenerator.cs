@@ -9,5 +9,5 @@ namespace ConsentOrchestrator.Domain.Interfaces;
 /// </summary>
 public interface IUnsubscribeLinkGenerator
 {
-    UnsubscribeLink Generate(UserId userId, PurposeId purposeId);
+    UnsubscribeLink Generate(UserId userId, CollectionPointId collectionPointId, PurposeId purposeId);
 }

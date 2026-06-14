@@ -17,6 +17,11 @@ public class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddlewa
             logger.LogWarning(ex, "Invalid consent");
             await WriteErrorAsync(context, HttpStatusCode.BadRequest, ex.Message);
         }
+        catch (InvalidUnsubscribeTokenException ex)
+        {
+            logger.LogWarning(ex, "Invalid unsubscribe token");
+            await WriteErrorAsync(context, HttpStatusCode.BadRequest, ex.Message);
+        }
         catch (UnknownPurposeException ex)
         {
             logger.LogWarning(ex, "Unknown purpose");

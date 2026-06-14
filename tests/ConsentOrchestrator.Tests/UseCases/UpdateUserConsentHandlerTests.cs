@@ -21,8 +21,8 @@ public class UpdateUserConsentHandlerTests
     public UpdateUserConsentHandlerTests()
     {
         _linkGenMock
-            .Setup(x => x.Generate(It.IsAny<UserId>(), It.IsAny<PurposeId>()))
-            .Returns((UserId _, PurposeId purposeId) =>
+            .Setup(x => x.Generate(It.IsAny<UserId>(), It.IsAny<CollectionPointId>(), It.IsAny<PurposeId>()))
+            .Returns((UserId _, CollectionPointId _, PurposeId purposeId) =>
                 new UnsubscribeLink(purposeId, $"https://consent.example.com/unsubscribe?purposeId={purposeId}"));
 
         _handler = new UpdateUserConsentHandler(
