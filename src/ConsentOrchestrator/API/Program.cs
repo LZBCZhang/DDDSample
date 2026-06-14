@@ -20,3 +20,7 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+// Exposed so the acceptance test project can bootstrap the API in-memory
+// through WebApplicationFactory<Program>.
+public partial class Program;
