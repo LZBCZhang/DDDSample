@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm -f src/ConsentOrchestrator/Domain/Entities/Communication.cs src/ConsentOrchestrator/Domain/Entities/ConsentStatus.cs src/ConsentOrchestrator/Domain/Interfaces/IUnsubscribeTokenGenerator.cs src/ConsentOrchestrator/Infrastructure/UnsubscribeTokenGenerator.cs)",
+      "Bash(mkdir -p src/ConsentOrchestrator/Domain/Common src/ConsentOrchestrator/Domain/Aggregates)",
+      "Bash(dotnet --version)",
+      "Bash(dotnet build *)"
+    ]
+  }
+}

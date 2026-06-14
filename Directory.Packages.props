@@ -1,0 +1,30 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Azure -->
+    <PackageVersion Include="Azure.Messaging.ServiceBus" Version="7.18.2" />
+
+    <!-- Resilience (Polly v8) -->
+    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="9.4.0" />
+
+    <!-- Cache -->
+    <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="10.0.0-preview.4.25258.110" />
+
+    <!-- OpenAPI -->
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0-preview.4.25258.110" />
+
+    <!-- Logging -->
+    <PackageVersion Include="Serilog.AspNetCore" Version="8.0.3" />
+    <PackageVersion Include="Serilog.Sinks.Console" Version="6.0.0" />
+
+    <!-- Tests -->
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageVersion Include="Moq" Version="4.20.72" />
+    <PackageVersion Include="FluentAssertions" Version="6.12.2" />
+  </ItemGroup>
+</Project>

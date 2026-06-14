@@ -1,0 +1,103 @@
+using ConsentOrchestrator.Domain.Common;
+using ConsentOrchestrator.Domain.Entities;
+using ConsentOrchestrator.Domain.Events;
+using ConsentOrchestrator.Domain.Exceptions;
+using ConsentOrchestrator.Domain.Interfaces;
+using ConsentOrchestrator.Domain.ValueObjects;
+
+namespace ConsentOrchestrator.Domain.Aggregates;
+
+/// <summary>
+/// Aggregate root capturing a user's consent decisions at a collection point.
+/// It is the only entry point to its <see cref="ConsentedPurpose"/> members and
+/// the single place where consent invariants are enforced. Recording a consent
+/// raises the <see cref="ConsentUpdated"/> and <see cref="UnsubscribeLinkGenerated"/>
+/// domain events.
+/// </summary>
+public sealed class Consent : AggregateRoot<ConsentId>
+{
+    private readonly List<ConsentedPurpose> _purposes;
+    private readonly List<UnsubscribeLink> _unsubscribeLinks;
+
+    public string Source { get; }
+    public DateTimeOffset OccurredAt { get; }
+    public IReadOnlyList<ConsentedPurpose> Purposes => _purposes;
+    public IReadOnlyList<UnsubscribeLink> UnsubscribeLinks => _unsubscribeLinks;
+
+    private Consent(
+        ConsentId id,
+        string source,
+        List<ConsentedPurpose> purposes,
+        List<UnsubscribeLink> unsubscribeLinks,
+        DateTimeOffset occurredAt) : base(id)
+    {
+        Source = source;
+        _purposes = purposes;
+        _unsubscribeLinks = unsubscribeLinks;
+        OccurredAt = occurredAt;
+    }
+
+    /// <summary>
+    /// Factory that records a user's consent. Guarantees a valid aggregate at
+    /// birth: there must be at least one decision, every decision must target a
+    /// purpose offered at the collection point, and may only consent to channels
+    /// that purpose actually offers. An unsubscribe link is generated per purpose
+    /// and the matching domain events are raised.
+    /// </summary>
+    public static Consent Record(
+        UserId userId,
+        CollectionPointId collectionPointId,
+        string source,
+        IReadOnlyList<ConsentDecision> decisions,
+        IReadOnlyList<Purpose> availablePurposes,
+        IUnsubscribeLinkGenerator linkGenerator)
+    {
+        if (decisions.Count == 0)
+            throw new InvalidConsentException("A consent must record at least one purpose decision.");
+
+        var catalog = availablePurposes.ToDictionary(p => p.Id);
+        var consentedPurposes = new List<ConsentedPurpose>(decisions.Count);
+
+        foreach (var decision in decisions)
+        {
+            if (!catalog.TryGetValue(decision.PurposeId, out var purpose))
+                throw new UnknownPurposeException(decision.PurposeId);
+
+            var unsupported = decision.Communications
+                .Where(channel => !purpose.OffersChannel(channel))
+                .ToList();
+
+            if (unsupported.Count > 0)
+                throw new InvalidConsentException(
+                    $"Purpose {decision.PurposeId} does not offer communication channel(s): {string.Join(", ", unsupported)}.");
+
+            consentedPurposes.Add(new ConsentedPurpose(decision.PurposeId, decision.Status, decision.Communications));
+        }
+
+        var occurredAt = DateTimeOffset.UtcNow;
+
+        var unsubscribeLinks = decisions
+            .Select(decision => linkGenerator.Generate(userId, decision.PurposeId))
+            .ToList();
+
+        var consent = new Consent(
+            new ConsentId(userId, collectionPointId),
+            source,
+            consentedPurposes,
+            unsubscribeLinks,
+            occurredAt);
+
+        consent.Raise(new ConsentUpdated(
+            userId,
+            collectionPointId,
+            source,
+            consentedPurposes
+                .Select(cp => new UpdatedPurpose(cp.Id, cp.Status.ToWireFormat(), cp.Communications))
+                .ToList(),
+            occurredAt));
+
+        consent.Raise(new UnsubscribeLinkGenerated(userId, unsubscribeLinks, occurredAt));
+
+        return consent;
+    }
+}
