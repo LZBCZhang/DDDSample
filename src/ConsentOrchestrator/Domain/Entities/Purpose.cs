@@ -4,25 +4,47 @@ using ConsentOrchestrator.Domain.ValueObjects;
 namespace ConsentOrchestrator.Domain.Entities;
 
 /// <summary>
-/// A purpose offered at a collection point, together with the communication
-/// channels it supports. Identified by its <see cref="PurposeId"/>, so it is
-/// an entity; its supported channels are value objects.
+/// A purpose offered at a collection point, with the communication preferences
+/// (and their options) and any other preferences it exposes. Identified by its
+/// <see cref="PurposeId"/>, so it is an entity.
 /// </summary>
 public sealed class Purpose : Entity<PurposeId>
 {
     public string Name { get; }
     public string Description { get; }
-    public IReadOnlyList<CommunicationChannel> Channels { get; }
+    public ConsentStatus Status { get; }
+    public int Version { get; }
+    public string PurposeType { get; }
+    public CollectionPointId CollectionPointId { get; }
+    public IReadOnlyList<CommunicationPreference> CommunicationPreferences { get; }
+    public IReadOnlyList<OtherPreference> OtherPreferences { get; }
 
-    public Purpose(PurposeId id, string name, string description, IReadOnlyList<CommunicationChannel> channels)
-        : base(id)
+    public Purpose(
+        PurposeId id,
+        string name,
+        string description,
+        ConsentStatus status,
+        int version,
+        string purposeType,
+        CollectionPointId collectionPointId,
+        IReadOnlyList<CommunicationPreference> communicationPreferences,
+        IReadOnlyList<OtherPreference> otherPreferences) : base(id)
     {
         Name = name;
         Description = description;
-        Channels = channels;
+        Status = status;
+        Version = version;
+        PurposeType = purposeType;
+        CollectionPointId = collectionPointId;
+        CommunicationPreferences = communicationPreferences;
+        OtherPreferences = otherPreferences;
     }
 
-    /// <summary>True when this purpose offers a channel of the given type.</summary>
-    public bool OffersChannel(string channelType) =>
-        Channels.Any(c => string.Equals(c.Type, channelType, StringComparison.OrdinalIgnoreCase));
+    /// <summary>The communication preference with the given id, or <c>null</c>.</summary>
+    public CommunicationPreference? FindCommunicationPreference(Guid communicationPreferenceId) =>
+        CommunicationPreferences.FirstOrDefault(c => c.Id == communicationPreferenceId);
+
+    /// <summary>True when this purpose exposes an other-preference with the given id.</summary>
+    public bool OffersOtherPreference(Guid otherPreferenceId) =>
+        OtherPreferences.Any(o => o.Id == otherPreferenceId);
 }

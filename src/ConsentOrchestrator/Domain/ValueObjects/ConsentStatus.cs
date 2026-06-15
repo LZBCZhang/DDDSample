@@ -23,4 +23,13 @@ public static class ConsentStatusExtensions
         ConsentStatus.Pending => "PENDING",
         _ => throw new ArgumentOutOfRangeException(nameof(status), status, "Unknown consent status.")
     };
+
+    /// <summary>Parses the stable, external representation back into a status.</summary>
+    public static ConsentStatus FromWireFormat(string status) => status.ToUpperInvariant() switch
+    {
+        "CONFIRMED" => ConsentStatus.Confirmed,
+        "DECLINED" => ConsentStatus.Declined,
+        "PENDING" => ConsentStatus.Pending,
+        _ => throw new ArgumentOutOfRangeException(nameof(status), status, "Unknown consent status.")
+    };
 }

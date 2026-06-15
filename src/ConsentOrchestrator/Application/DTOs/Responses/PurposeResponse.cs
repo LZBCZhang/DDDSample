@@ -4,8 +4,22 @@ public record PurposeResponse(
     Guid Id,
     string Name,
     string Description,
-    IReadOnlyList<CommunicationResponse> Communications);
+    string Status,
+    int Version,
+    string PurposeType,
+    Guid CollectionPointId,
+    IReadOnlyList<CommunicationPreferenceResponse> CommunicationPreferences,
+    IReadOnlyList<PreferenceOptionResponse> OtherPreferences);
 
-public record CommunicationResponse(
+public record CommunicationPreferenceResponse(
     Guid Id,
-    string Type);
+    string Name,
+    string Description,
+    int Version,
+    string CommunicationType,
+    IReadOnlyList<PreferenceOptionResponse> PreferenceOptions);
+
+public record PreferenceOptionResponse(
+    Guid Id,
+    string Type,
+    bool IsConsented);

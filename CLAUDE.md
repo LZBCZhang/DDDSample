@@ -2,6 +2,52 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Key notions
+### Purpose definition
+Each purpose can have multiple communication preferences and each communication preference can have multiple preference options.  
+For example, a purpose can be "Marketing" and the communication preferences can be "Email", "SMS", "Push Notifications" etc.
+Each communication preference can have multiple preference options like "Promotional Emails", "Transactional Emails" etc.
+When we create a user consent, we can define the communication preferences and their respective preference options is the user has consented to or not.
+Other preferences can be any additional preferences that are not related to communication, such as data sharing preferences or privacy settings.
+
+
+Purpose {
+Id: guid,
+Name: string,
+Description: stirng,
+Status : ConsentStatus,
+Version: int,
+PurposeType: string,
+CollectionPointId: CollectionPointId,
+List<CommunicationPrefrences> CommunicationPreferences,
+List<OtherPreferences> OtherPreferences
+}
+
+
+CommunicationPrefrences {
+Id: guid,
+Name: string,
+Description: string,
+Version: int,
+CommunicationType: CommunicationPreferenceType,
+List<PrefenrenceOptions> PreferenceOptions
+}
+
+PrefenrenceOption {
+Id: guid,
+Type: string,
+IsConsented: bool
+}
+
+### User consent definition
+A user can provide or withdraw consent for one or more processing purposes.
+Consent can be provided through the User Preference Center, accessible from a web application, a mobile application, or through a call center.
+A user can withdraw consent through several channels:
+by using the unsubscribe link included in the email footer;
+through the "Unsubscribe" header (List-Unsubscribe), which is commonly displayed by email providers such as Gmail;
+via SMS, using the available opt-out mechanisms.
+
+
 ## Project
 
 Consent-management system built as two ASP.NET Core (`net10.0`) APIs in `src/`:
@@ -9,6 +55,7 @@ Consent-management system built as two ASP.NET Core (`net10.0`) APIs in `src/`:
 - **OnetrustAdapter** — adapter over the external OneTrust API.
 
 `ddd.md` is the domain/design spec. Consult it for domain rules and intended behavior before implementing or changing domain logic.
+
 
 ## Build & test
 

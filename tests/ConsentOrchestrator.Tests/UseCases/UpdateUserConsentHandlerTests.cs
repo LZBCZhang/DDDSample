@@ -1,4 +1,5 @@
 using ConsentOrchestrator.Application.Contracts;
+using ConsentOrchestrator.Application.DTOs.Responses;
 using ConsentOrchestrator.Application.UseCases.UpdateUserConsent;
 using ConsentOrchestrator.Domain.Entities;
 using ConsentOrchestrator.Domain.Events;
@@ -18,6 +19,12 @@ public class UpdateUserConsentHandlerTests
     private readonly Mock<IUnsubscribeLinkGenerator> _linkGenMock = new();
     private readonly UpdateUserConsentHandler _handler;
 
+    private readonly UserId _userId = UserId.From(Guid.NewGuid());
+    private readonly CollectionPointId _collectionPointId = CollectionPointId.From(Guid.NewGuid());
+    private readonly PurposeId _purposeId = PurposeId.From(Guid.NewGuid());
+    private readonly Guid _communicationPreferenceId = Guid.NewGuid();
+    private readonly Guid _optionId = Guid.NewGuid();
+
     public UpdateUserConsentHandlerTests()
     {
         _linkGenMock
@@ -33,28 +40,43 @@ public class UpdateUserConsentHandlerTests
             NullLogger<UpdateUserConsentHandler>.Instance);
     }
 
-    private static Purpose MarketingPurpose(PurposeId id) =>
-        new(id, "Marketing", "Marketing purpose",
-            [new CommunicationChannel(Guid.NewGuid(), "EMAIL")]);
+    private Purpose MarketingPurpose() =>
+        new(_purposeId, "Marketing", "Marketing purpose", ConsentStatus.Confirmed, 1, "Marketing", _collectionPointId,
+            [
+                new CommunicationPreference(_communicationPreferenceId, "Email", "Email preference", 1,
+                    CommunicationPreferenceType.Email,
+                    [new PreferenceOption(_optionId, "Promotional", IsConsented: true)])
+            ],
+            []);
 
-    private static UpdateUserConsentCommand Command(
-        UserId userId, CollectionPointId collectionPointId, PurposeId purposeId, string correlationId) =>
-        new(userId, collectionPointId, "web",
-            [new ConsentDecision(purposeId, ConsentStatus.Confirmed, ["EMAIL"])],
+    private PurposeResponse MarketingPurposeResponse() =>
+        new(_purposeId.Value, "Marketing", "Marketing purpose", "CONFIRMED", 1, "Marketing", _collectionPointId.Value,
+            [
+                new CommunicationPreferenceResponse(_communicationPreferenceId, "Email", "Email preference", 1, "EMAIL",
+                    [new PreferenceOptionResponse(_optionId, "Promotional", true)])
+            ],
+            []);
+
+    private UpdateUserConsentCommand Command(string correlationId) =>
+        new(_userId, _collectionPointId, "web",
+            [
+                new ConsentDecision(_purposeId, ConsentStatus.Confirmed,
+                    [
+                        new CommunicationPreferenceDecision(_communicationPreferenceId,
+                            [new PreferenceOption(_optionId, "Promotional", IsConsented: true)])
+                    ],
+                    [])
+            ],
             correlationId);
 
     [Fact]
     public async Task Handle_WhenPurposesInCache_ShouldNotCallOneTrustForPurposes()
     {
-        var userId = UserId.From(Guid.NewGuid());
-        var collectionPointId = CollectionPointId.From(Guid.NewGuid());
-        var purposeId = PurposeId.From(Guid.NewGuid());
-
         _cacheMock
-            .Setup(x => x.GetAsync(collectionPointId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<Purpose> { MarketingPurpose(purposeId) });
+            .Setup(x => x.GetAsync(_collectionPointId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Purpose> { MarketingPurpose() });
 
-        var result = await _handler.HandleAsync(Command(userId, collectionPointId, purposeId, "corr-123"));
+        var result = await _handler.HandleAsync(Command("corr-123"));
 
         _onetrustMock.Verify(
             x => x.GetPurposesAsync(It.IsAny<CollectionPointId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
@@ -66,45 +88,33 @@ public class UpdateUserConsentHandlerTests
     [Fact]
     public async Task Handle_WhenPurposesNotInCache_ShouldCallOnetrustAndSetCache()
     {
-        var userId = UserId.From(Guid.NewGuid());
-        var collectionPointId = CollectionPointId.From(Guid.NewGuid());
-        var purposeId = PurposeId.From(Guid.NewGuid());
-
         _cacheMock
-            .Setup(x => x.GetAsync(collectionPointId, It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetAsync(_collectionPointId, It.IsAny<CancellationToken>()))
             .ReturnsAsync((IReadOnlyList<Purpose>?)null);
 
         _onetrustMock
-            .Setup(x => x.GetPurposesAsync(collectionPointId, "corr-456", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<Application.DTOs.Responses.PurposeResponse>
-            {
-                new(purposeId.Value, "Marketing", "Marketing purpose",
-                    [new Application.DTOs.Responses.CommunicationResponse(Guid.NewGuid(), "EMAIL")])
-            });
+            .Setup(x => x.GetPurposesAsync(_collectionPointId, "corr-456", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PurposeResponse> { MarketingPurposeResponse() });
 
-        await _handler.HandleAsync(Command(userId, collectionPointId, purposeId, "corr-456"));
+        await _handler.HandleAsync(Command("corr-456"));
 
         _onetrustMock.Verify(
-            x => x.GetPurposesAsync(collectionPointId, "corr-456", It.IsAny<CancellationToken>()),
+            x => x.GetPurposesAsync(_collectionPointId, "corr-456", It.IsAny<CancellationToken>()),
             Times.Once);
 
         _cacheMock.Verify(
-            x => x.SetAsync(collectionPointId, It.IsAny<IReadOnlyList<Purpose>>(), It.IsAny<CancellationToken>()),
+            x => x.SetAsync(_collectionPointId, It.IsAny<IReadOnlyList<Purpose>>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
     [Fact]
     public async Task Handle_ShouldPublishBothDomainEvents()
     {
-        var userId = UserId.From(Guid.NewGuid());
-        var collectionPointId = CollectionPointId.From(Guid.NewGuid());
-        var purposeId = PurposeId.From(Guid.NewGuid());
-
         _cacheMock
-            .Setup(x => x.GetAsync(collectionPointId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<Purpose> { MarketingPurpose(purposeId) });
+            .Setup(x => x.GetAsync(_collectionPointId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Purpose> { MarketingPurpose() });
 
-        await _handler.HandleAsync(Command(userId, collectionPointId, purposeId, "corr-789"));
+        await _handler.HandleAsync(Command("corr-789"));
 
         _eventBusMock.Verify(
             x => x.PublishAsync(It.IsAny<ConsentUpdated>(), It.IsAny<CancellationToken>()),
@@ -118,21 +128,17 @@ public class UpdateUserConsentHandlerTests
     [Fact]
     public async Task Handle_ShouldForwardConsentsToOnetrustAdapter()
     {
-        var userId = UserId.From(Guid.NewGuid());
-        var collectionPointId = CollectionPointId.From(Guid.NewGuid());
-        var purposeId = PurposeId.From(Guid.NewGuid());
-
         _cacheMock
-            .Setup(x => x.GetAsync(collectionPointId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<Purpose> { MarketingPurpose(purposeId) });
+            .Setup(x => x.GetAsync(_collectionPointId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Purpose> { MarketingPurpose() });
 
-        await _handler.HandleAsync(Command(userId, collectionPointId, purposeId, "corr-abc"));
+        await _handler.HandleAsync(Command("corr-abc"));
 
         _onetrustMock.Verify(
             x => x.UpdateUserConsentsAsync(
-                userId,
-                collectionPointId,
-                It.Is<IReadOnlyList<ConsentDecision>>(d => d.Count == 1 && d[0].PurposeId == purposeId),
+                _userId,
+                _collectionPointId,
+                It.Is<IReadOnlyList<ConsentDecision>>(d => d.Count == 1 && d[0].PurposeId == _purposeId),
                 "corr-abc",
                 It.IsAny<CancellationToken>()),
             Times.Once);

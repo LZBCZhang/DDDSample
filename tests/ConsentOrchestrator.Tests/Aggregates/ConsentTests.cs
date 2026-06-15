@@ -14,6 +14,8 @@ public class ConsentTests
     private readonly UserId _userId = UserId.From(Guid.NewGuid());
     private readonly CollectionPointId _collectionPointId = CollectionPointId.From(Guid.NewGuid());
     private readonly PurposeId _purposeId = PurposeId.From(Guid.NewGuid());
+    private readonly Guid _communicationPreferenceId = Guid.NewGuid();
+    private readonly Guid _optionId = Guid.NewGuid();
     private readonly IUnsubscribeLinkGenerator _linkGenerator;
 
     public ConsentTests()
@@ -26,7 +28,21 @@ public class ConsentTests
     }
 
     private Purpose EmailPurpose() =>
-        new(_purposeId, "Marketing", "Desc", [new CommunicationChannel(Guid.NewGuid(), "EMAIL")]);
+        new(_purposeId, "Marketing", "Desc", ConsentStatus.Confirmed, 1, "Marketing", _collectionPointId,
+            [
+                new CommunicationPreference(_communicationPreferenceId, "Email", "Email preference", 1,
+                    CommunicationPreferenceType.Email,
+                    [new PreferenceOption(_optionId, "Promotional", IsConsented: true)])
+            ],
+            []);
+
+    private ConsentDecision Decision(Guid communicationPreferenceId, Guid optionId) =>
+        new(_purposeId, ConsentStatus.Confirmed,
+            [
+                new CommunicationPreferenceDecision(communicationPreferenceId,
+                    [new PreferenceOption(optionId, "Promotional", IsConsented: true)])
+            ],
+            []);
 
     private Consent Record(IReadOnlyList<ConsentDecision> decisions, IReadOnlyList<Purpose> available) =>
         Consent.Record(_userId, _collectionPointId, "web", decisions, available, _linkGenerator);
@@ -42,19 +58,23 @@ public class ConsentTests
     [Fact]
     public void Record_WithUnknownPurpose_Throws()
     {
-        var decisions = new[] { new ConsentDecision(_purposeId, ConsentStatus.Confirmed, ["EMAIL"]) };
-
-        var act = () => Record(decisions, []);
+        var act = () => Record([Decision(_communicationPreferenceId, _optionId)], []);
 
         act.Should().Throw<UnknownPurposeException>();
     }
 
     [Fact]
-    public void Record_WithChannelNotOfferedByPurpose_Throws()
+    public void Record_WithCommunicationPreferenceNotOffered_Throws()
     {
-        var decisions = new[] { new ConsentDecision(_purposeId, ConsentStatus.Confirmed, ["SMS"]) };
+        var act = () => Record([Decision(Guid.NewGuid(), _optionId)], [EmailPurpose()]);
 
-        var act = () => Record(decisions, [EmailPurpose()]);
+        act.Should().Throw<InvalidConsentException>();
+    }
+
+    [Fact]
+    public void Record_WithOptionNotOffered_Throws()
+    {
+        var act = () => Record([Decision(_communicationPreferenceId, Guid.NewGuid())], [EmailPurpose()]);
 
         act.Should().Throw<InvalidConsentException>();
     }
@@ -62,9 +82,7 @@ public class ConsentTests
     [Fact]
     public void Record_WithValidDecision_RaisesBothDomainEvents()
     {
-        var decisions = new[] { new ConsentDecision(_purposeId, ConsentStatus.Confirmed, ["EMAIL"]) };
-
-        var consent = Record(decisions, [EmailPurpose()]);
+        var consent = Record([Decision(_communicationPreferenceId, _optionId)], [EmailPurpose()]);
 
         consent.DomainEvents.Should().HaveCount(2);
         consent.DomainEvents.Should().ContainSingle(e => e is ConsentUpdated);
@@ -76,9 +94,7 @@ public class ConsentTests
     [Fact]
     public void Record_ConsentUpdated_UsesWireFormatStatus()
     {
-        var decisions = new[] { new ConsentDecision(_purposeId, ConsentStatus.Confirmed, ["EMAIL"]) };
-
-        var consent = Record(decisions, [EmailPurpose()]);
+        var consent = Record([Decision(_communicationPreferenceId, _optionId)], [EmailPurpose()]);
 
         var updated = consent.DomainEvents.OfType<ConsentUpdated>().Single();
         updated.Purposes.Should().ContainSingle()
@@ -88,8 +104,7 @@ public class ConsentTests
     [Fact]
     public void ClearDomainEvents_RemovesRaisedEvents()
     {
-        var decisions = new[] { new ConsentDecision(_purposeId, ConsentStatus.Confirmed, ["EMAIL"]) };
-        var consent = Record(decisions, [EmailPurpose()]);
+        var consent = Record([Decision(_communicationPreferenceId, _optionId)], [EmailPurpose()]);
 
         consent.ClearDomainEvents();
 

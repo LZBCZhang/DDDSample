@@ -57,12 +57,12 @@ public class OnetrustAdapterClient(
             decisions.Select(decision => new OnetrustPurposePayload(
                 decision.PurposeId.Value,
                 decision.Status.ToWireFormat(),
-                decision.Communications.Select(comm => new OnetrustCommunicationPayload(
-                    Guid.NewGuid(), // communicationId resolved from purposes
-                    new List<OnetrustCommunicationOption>
-                    {
-                        new(Guid.NewGuid(), IsConsented: comm is "EMAIL" or "PUSH-NOTIFICATION")
-                    })).ToList()
+                decision.CommunicationPreferences.Select(preference => new OnetrustCommunicationPayload(
+                    preference.CommunicationPreferenceId,
+                    preference.Options.Select(option => new OnetrustCommunicationOption(
+                        option.Id,
+                        option.IsConsented)).ToList()
+                )).ToList()
             )).ToList());
 
         using var httpRequest = new HttpRequestMessage(

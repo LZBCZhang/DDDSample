@@ -24,7 +24,12 @@ public static class ConsentMapper
         PurposeId.From(dto.Id),
         dto.Name,
         dto.Description,
-        dto.Communications.Select(c => new CommunicationChannel(c.Id, c.Type)).ToList());
+        ConsentStatusExtensions.FromWireFormat(dto.Status),
+        dto.Version,
+        dto.PurposeType,
+        CollectionPointId.From(dto.CollectionPointId),
+        dto.CommunicationPreferences.Select(ToCommunicationPreference).ToList(),
+        dto.OtherPreferences.Select(o => new OtherPreference(o.Id, o.Type, o.IsConsented)).ToList());
 
     public static UpdateUserConsentResponse ToResponse(
         UserId userId,
@@ -35,10 +40,21 @@ public static class ConsentMapper
             "SUCCESS",
             links.Select(l => new UnsubscribeLinkResponse(l.PurposeId.Value, l.Url)).ToList());
 
-    private static ConsentDecision ToDecision(PurposeRequest request) => new(
+    private static CommunicationPreference ToCommunicationPreference(CommunicationPreferenceResponse dto) => new(
+        dto.Id,
+        dto.Name,
+        dto.Description,
+        dto.Version,
+        CommunicationPreferenceTypeExtensions.FromWireFormat(dto.CommunicationType),
+        dto.PreferenceOptions.Select(o => new PreferenceOption(o.Id, o.Type, o.IsConsented)).ToList());
+
+    private static ConsentDecision ToDecision(PurposeConsentRequest request) => new(
         PurposeId.From(request.Id),
         ToStatus(request.Status),
-        request.Communications);
+        request.CommunicationPreferences.Select(c => new CommunicationPreferenceDecision(
+            c.Id,
+            c.Options.Select(o => new PreferenceOption(o.Id, o.Type, o.IsConsented)).ToList())).ToList(),
+        request.OtherPreferences.Select(o => new PreferenceOption(o.Id, o.Type, o.IsConsented)).ToList());
 
     private static ConsentStatus ToStatus(ConsentStatusDto status) => status switch
     {

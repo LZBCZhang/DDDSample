@@ -28,7 +28,7 @@ public class UnsubscribeHandler(
             command.CorrelationId, token.UserId, token.PurposeId);
 
         // Unsubscribing withdraws consent for that single purpose.
-        var decision = new ConsentDecision(token.PurposeId, ConsentStatus.Declined, []);
+        var decision = new ConsentDecision(token.PurposeId, ConsentStatus.Declined, [], []);
 
         await onetrustClient.UpdateUserConsentsAsync(
             token.UserId,

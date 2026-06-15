@@ -1,4 +1,3 @@
-
 using ConsentOrchestrator.Domain.Common;
 using ConsentOrchestrator.Domain.Entities;
 using ConsentOrchestrator.Domain.Events;
@@ -41,9 +40,10 @@ public sealed class Consent : AggregateRoot<ConsentId>
     /// <summary>
     /// Factory that records a user's consent. Guarantees a valid aggregate at
     /// birth: there must be at least one decision, every decision must target a
-    /// purpose offered at the collection point, and may only consent to channels
-    /// that purpose actually offers. An unsubscribe link is generated per purpose
-    /// and the matching domain events are raised.
+    /// purpose offered at the collection point, every communication preference and
+    /// preference option must be offered by that purpose, and every other
+    /// preference must be one the purpose exposes. An unsubscribe link is generated
+    /// per purpose and the matching domain events are raised.
     /// </summary>
     public static Consent Record(
         UserId userId,
@@ -64,15 +64,28 @@ public sealed class Consent : AggregateRoot<ConsentId>
             if (!catalog.TryGetValue(decision.PurposeId, out var purpose))
                 throw new UnknownPurposeException(decision.PurposeId);
 
-            var unsupported = decision.Communications
-                .Where(channel => !purpose.OffersChannel(channel))
-                .ToList();
+            foreach (var preference in decision.CommunicationPreferences)
+            {
+                var offered = purpose.FindCommunicationPreference(preference.CommunicationPreferenceId)
+                    ?? throw new InvalidConsentException(
+                        $"Purpose {decision.PurposeId} does not offer communication preference {preference.CommunicationPreferenceId}.");
 
-            if (unsupported.Count > 0)
+                var unknownOption = preference.Options.FirstOrDefault(option => !offered.OffersOption(option.Id));
+                if (unknownOption is not null)
+                    throw new InvalidConsentException(
+                        $"Communication preference {preference.CommunicationPreferenceId} does not offer option {unknownOption.Id}.");
+            }
+
+            var unknownOther = decision.OtherPreferences.FirstOrDefault(other => !purpose.OffersOtherPreference(other.Id));
+            if (unknownOther is not null)
                 throw new InvalidConsentException(
-                    $"Purpose {decision.PurposeId} does not offer communication channel(s): {string.Join(", ", unsupported)}.");
+                    $"Purpose {decision.PurposeId} does not offer other preference {unknownOther.Id}.");
 
-            consentedPurposes.Add(new ConsentedPurpose(decision.PurposeId, decision.Status, decision.Communications));
+            consentedPurposes.Add(new ConsentedPurpose(
+                decision.PurposeId,
+                decision.Status,
+                decision.CommunicationPreferences,
+                decision.OtherPreferences));
         }
 
         var occurredAt = DateTimeOffset.UtcNow;
@@ -92,13 +105,24 @@ public sealed class Consent : AggregateRoot<ConsentId>
             userId,
             collectionPointId,
             source,
-            consentedPurposes
-                .Select(cp => new UpdatedPurpose(cp.Id, cp.Status.ToWireFormat(), cp.Communications))
-                .ToList(),
+            consentedPurposes.Select(ToUpdatedPurpose).ToList(),
             occurredAt));
 
         consent.Raise(new UnsubscribeLinkGenerated(userId, unsubscribeLinks, occurredAt));
 
         return consent;
     }
+
+    private static UpdatedPurpose ToUpdatedPurpose(ConsentedPurpose purpose) => new(
+        purpose.Id,
+        purpose.Status.ToWireFormat(),
+        purpose.CommunicationPreferences
+            .Select(preference => new UpdatedCommunicationPreference(
+                preference.CommunicationPreferenceId,
+                preference.Options.Select(ToUpdatedOption).ToList()))
+            .ToList(),
+        purpose.OtherPreferences.Select(ToUpdatedOption).ToList());
+
+    private static UpdatedPreferenceOption ToUpdatedOption(PreferenceOption option) =>
+        new(option.Id, option.Type, option.IsConsented);
 }

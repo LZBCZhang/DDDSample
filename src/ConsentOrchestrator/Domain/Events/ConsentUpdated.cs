@@ -12,4 +12,14 @@ public record ConsentUpdated(
 public record UpdatedPurpose(
     PurposeId PurposeId,
     string Status,
-    IReadOnlyList<string> Communications);
+    IReadOnlyList<UpdatedCommunicationPreference> CommunicationPreferences,
+    IReadOnlyList<UpdatedPreferenceOption> OtherPreferences);
+
+public record UpdatedCommunicationPreference(
+    Guid CommunicationPreferenceId,
+    IReadOnlyList<UpdatedPreferenceOption> Options);
+
+public record UpdatedPreferenceOption(
+    Guid Id,
+    string Type,
+    bool IsConsented);

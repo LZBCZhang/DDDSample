@@ -4,9 +4,19 @@ namespace ConsentOrchestrator.Application.DTOs.Requests;
 
 public record UpdateUserConsentRequest(
     string Source,
-    IReadOnlyList<PurposeRequest> Purposes);
+    IReadOnlyList<PurposeConsentRequest> Purposes);
 
-public record PurposeRequest(
+public record PurposeConsentRequest(
     Guid Id,
     ConsentStatusDto Status,
-    IReadOnlyList<string> Communications);
+    IReadOnlyList<CommunicationPreferenceConsentRequest> CommunicationPreferences,
+    IReadOnlyList<PreferenceOptionConsentRequest> OtherPreferences);
+
+public record CommunicationPreferenceConsentRequest(
+    Guid Id,
+    IReadOnlyList<PreferenceOptionConsentRequest> Options);
+
+public record PreferenceOptionConsentRequest(
+    Guid Id,
+    string Type,
+    bool IsConsented);
